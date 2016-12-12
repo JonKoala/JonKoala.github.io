@@ -1,0 +1,14 @@
+{
+  "short_name": "SynC-Emissor",
+  "name": "Synchronized Colors - Emissor",
+  "icons": [
+    {
+      "src": "icon-144.png",
+      "type": "image/png",
+      "sizes": "144x144"
+    }
+  ],
+  "start_url": "emissor.html",
+  "display": "standalone",
+  "background_color": "#FFFFFF"
+}
