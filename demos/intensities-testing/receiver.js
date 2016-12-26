@@ -4,8 +4,8 @@ function onReceiverReady() {
 }
 
 function animationLoop() {
-  
-  var frequencies = [18600, 18800, 19000, 19200, 19400, 19600, 19800, 20000, 20200];
+
+  var frequencies = [18600, 18800, 19000, 19200, 19400, 19600, 19800, 20000, 20200, 20400];
 
   var intensities = receiver.getIntensityValues(frequencies);
   var str = '';
