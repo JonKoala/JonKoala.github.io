@@ -78,8 +78,8 @@ Receiver.prototype.checkMessage = function() {
 Receiver.prototype.getIntensityValues = function() {
   var frequencies = [].concat.apply([], arguments);
 
-  var freqDomain = new Uint8Array(this.analyser.frequencyBinCount);
-  this.analyser.getByteFrequencyData(freqDomain);
+  var freqDomain = new Float32Array(this.analyser.frequencyBinCount);
+  this.analyser.getFloatFrequencyData(freqDomain);
   var nyquist = this.context.sampleRate/2;
 
   var intensities = [];
