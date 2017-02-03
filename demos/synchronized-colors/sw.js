@@ -1,4 +1,4 @@
-var CACHE_NAME = 'synchronized-colors-cache-v1';
+var CACHE_NAME = 'synchronized-colors-cache-v2';
 
 self.addEventListener('fetch', function(event) {
   event.respondWith(
