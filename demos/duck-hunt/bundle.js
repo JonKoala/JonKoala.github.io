@@ -95,25 +95,58 @@
 
 /* harmony default export */ __webpack_exports__["a"] = (class extends __WEBPACK_IMPORTED_MODULE_0__printable__["a" /* default */] {
 
-  constructor(position) {
-    super();
-
-    this.position = position;
-
-    this.state = 0;
-    this.spritesheet = [];
+  static get spritesheet() {
+    return [];
   }
 
+  static get states() {
+    return [];
+  }
+
+  constructor(position, orientation, state) {
+    super();
+
+    this.spriteIndex = 0;
+
+    this.position = position;
+    this.orientation = orientation;
+    this.changeState(state);
+  }
+
+
+  // routine
+
+  update() {
+    this.behaviour();
+  }
+
+
+  // engine
+
   get sprite() {
-    return this.spritesheet[this.state];
+    return this.constructor.spritesheet[this.spriteIndex];
   }
 
   move(orientation, units = 1) {
     this.orientation = orientation;
-    this.position = this._getNewPosition(orientation, units);
+    this.position = this.predictPosition(orientation, units);
   }
 
-  _getNewPosition(orientation, units) {
+
+  // state management
+
+  changeState(state) {
+    this.state = state;
+
+    this.behaviour = this.nullBehaviour;
+  }
+
+  nullBehaviour() { }
+
+
+  // utils
+
+  predictPosition(orientation, units = 1) {
     return this.position + (orientation * units);
   }
 
@@ -141,8 +174,8 @@
 Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__models_map__ = __webpack_require__(4);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__models_mark__ = __webpack_require__(6);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__models_duck__ = __webpack_require__(7);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__utils_js__ = __webpack_require__(2);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__inputHandler__ = __webpack_require__(7);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__duckHandler__ = __webpack_require__(8);
 
 
 
@@ -153,12 +186,13 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
 // start assets
 
 var mapLength = 50;
-var maxDucks = 5;
+var numDucks = 5;
+var ducksMaxRespawnTurns = 100;
+
+var map = {};
+var mark = {};
 
 var turnCount = 0;
-var map = new __WEBPACK_IMPORTED_MODULE_0__models_map__["a" /* default */](mapLength);
-var ducks = [];
-var mark = {};
 
 start();
 
@@ -168,15 +202,13 @@ start();
 function start() {
 
   // start the game objects
-  for (let i=0; i<=maxDucks; i++) {
-    let position = __WEBPACK_IMPORTED_MODULE_3__utils_js__["a" /* default */].getRandomNumber(0, mapLength-1);
-    let orientation = __WEBPACK_IMPORTED_MODULE_3__utils_js__["a" /* default */].getRandomNumber(0, 1) ? 1 : -1;
-    ducks.push(new __WEBPACK_IMPORTED_MODULE_2__models_duck__["a" /* default */](position, orientation));
-  }
+  map = new __WEBPACK_IMPORTED_MODULE_0__models_map__["a" /* default */](mapLength);
   mark = new __WEBPACK_IMPORTED_MODULE_1__models_mark__["a" /* default */](0);
+  __WEBPACK_IMPORTED_MODULE_3__duckHandler__["a" /* default */].start(numDucks, mapLength, ducksMaxRespawnTurns);
 
-  // start looking for events
-  document.addEventListener('keydown', keyHandler);
+  // handle user inputs
+  __WEBPACK_IMPORTED_MODULE_2__inputHandler__["a" /* default */].addEventListener('move', onUserMove);
+  __WEBPACK_IMPORTED_MODULE_2__inputHandler__["a" /* default */].addEventListener('shoot', onUserShoot);
 
   loop();
 }
@@ -185,15 +217,9 @@ function loop(timeStamp) {
   turnCount++;
 
   // update game objects
-
-  ducks.forEach(function(duck, index, origin) {
-    var otherDucks = origin.slice(0);
-    otherDucks.splice(index, 1);
-
-    duck.update(turnCount, otherDucks, mapLength);
-  });
-
-  mark.update(ducks);
+  __WEBPACK_IMPORTED_MODULE_3__duckHandler__["a" /* default */].updateDucks(turnCount);
+  mark.target = __WEBPACK_IMPORTED_MODULE_3__duckHandler__["a" /* default */].locateDuck(mark.position);
+  mark.update();
 
   print();
 
@@ -206,20 +232,33 @@ function print() {
   map.reset();
 
   // add game objects
-  ducks.forEach(duck => map.addGameObject(duck));
+  __WEBPACK_IMPORTED_MODULE_3__duckHandler__["a" /* default */].ducks.forEach(duck => map.addGameObject(duck));
   map.addGameObject(mark);
 
   // update url
   location.hash = map;
 }
 
-function keyHandler(event) {
-	if (event.key === 'ArrowRight' && mark.position < mapLength)
-		mark.move(1)
-	if (event.key === 'ArrowLeft' && mark.position > 0)
-		mark.move(-1);
-  if (event.key === ' ')
-    mark.shoot(ducks);
+
+// handle input events
+
+function onUserMove(e) {
+  var nextPosition = mark.predictPosition(e.direction);
+  if (nextPosition >= 0 && nextPosition <= mapLength)
+    mark.move(e.direction);
+}
+
+function onUserShoot() {
+
+  // won't do anything if still in cooldown
+  if (mark.state === 'cooldown')
+    return;
+
+  mark.shoot();
+
+  // kill a duck, if it's in sight
+  if (mark.target)
+    __WEBPACK_IMPORTED_MODULE_3__duckHandler__["a" /* default */].killDuck(mark.target);
 }
 
 
@@ -287,48 +326,57 @@ function keyHandler(event) {
 
 /* harmony default export */ __webpack_exports__["a"] = (class extends __WEBPACK_IMPORTED_MODULE_0__gameObject__["a" /* default */] {
 
+  static get spritesheet() {
+    return ['(  )', '(2)', '(S)', '(x)'];
+  }
+
+  static get states() {
+    return ['normal', 'cooldown'];
+  }
+
   constructor(position) {
-    super(position);
+    super(position, 0, 'normal');
 
-    this.turnsToCooldown = 20;
-    this.cooldownCount = 0;
-
-    this.spritesheet = ['(  )', '(2)', '(S)', '(x)'];
-    this.state = 0;
+    this.cooldownTurns = 20;
   }
 
-  update(ducks) {
 
-    // won't do anything if still in cooldown
-    if (this.state === 3 && this.turnsToCooldown > this.cooldownCount) {
-      this.cooldownCount++;
-      return;
+  // state management
+
+  changeState(state) {
+    this.state = state;
+
+    switch(state) {
+      case 'normal':
+        this.behaviour = this.normalBehaviour;
+        break;
+      case 'cooldown':
+        this.cooldownTurnsCount = 0;
+        this.behaviour = this.cooldownBehaviour;
+        break;
     }
-
-    this.target = ducks.find(duck => duck.position === this.position);
   }
 
-  set target(target) {
-    if (target)
-      this.state = (target.orientation > 0) ? 2 : 1;
+  normalBehaviour() {
+    if (this.target)
+      this.spriteIndex = (this.target.orientation > 0) ? 2 : 1;
     else
-      this.state = 0;
+      this.spriteIndex = 0;
   }
 
-  shoot(ducks, map) {
+  cooldownBehaviour() {
+    this.spriteIndex = 3;
 
-    // won't do anything if still in cooldown
-    if (this.state === 3)
-      return;
+    this.cooldownTurnsCount++;
+    if (this.cooldownTurns <= this.cooldownTurnsCount)
+      this.changeState('normal');
+  }
 
-    // kill a duck, if it's in sight
-    var targetIndex = ducks.findIndex(duck => duck.position === this.position);
-    if (targetIndex >= 0)
-      ducks.splice(targetIndex, 1);
 
-    // start weapon cooldown
-    this.state = 3;
-    this.cooldownCount = 0;
+  // events
+
+  shoot() {
+    this.changeState('cooldown');
   }
 
 });
@@ -339,6 +387,158 @@ function keyHandler(event) {
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
+
+var handler = {
+
+  get availableEvents() {
+    return ['move', 'shoot'];
+  },
+
+  _start() {
+    this.events = {};
+    this.availableEvents.forEach(eventName => {
+      this.events[eventName] = [];
+    });
+
+    document.addEventListener('keydown', handler.onKeydown.bind(handler));
+  },
+
+  _dispatchEvent(eventName, obj) {
+    this.events[eventName].forEach(callback => {
+      setTimeout(callback.bind(this, obj), 0);
+    });
+  },
+
+  addEventListener(eventName, callback) {
+    if (eventName in this.events)
+      this.events[eventName].push(callback);
+  },
+
+  onKeydown(e) {
+    if (event.key === 'ArrowRight')
+      this._dispatchEvent('move', {direction: 1});
+    if (event.key === 'ArrowLeft')
+      this._dispatchEvent('move', {direction: -1});
+    if (event.key === ' ')
+      this._dispatchEvent('shoot');
+  }
+}
+
+handler._start();
+
+/* harmony default export */ __webpack_exports__["a"] = (handler);
+
+
+/***/ }),
+/* 8 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__utils__ = __webpack_require__(2);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__models_duck__ = __webpack_require__(9);
+
+
+
+/* harmony default export */ __webpack_exports__["a"] = ({
+
+  start(numDucks, mapLength, duckRespawnTurns) {
+
+    this.mapLength = mapLength;
+    this.numDucks = numDucks;
+    this.maxRespawnTurns = duckRespawnTurns;
+
+    // start ducks
+    this.ducks = [];
+    for (let i=0; i<this.numDucks; i++)
+      this.addDuck();
+  },
+
+  addDuck() {
+    var newDuck = new __WEBPACK_IMPORTED_MODULE_1__models_duck__["a" /* default */](this.getUnocupiedMapPosition(), this.getRandomOrientation(), this.getRandomState());
+    this.ducks.push(newDuck);
+  },
+
+  killDuck(duck) {
+    var index = this.ducks.indexOf(duck);
+    this.ducks.splice(index, 1);
+  },
+
+  updateDucks(turnCount) {
+
+    // ducks collision and pseudo AI logic
+    this.ducks.forEach(duck => {
+      if (duck.state === 'walking') {
+
+        // define duck's next moviment
+        let nextOrientation = this.getRandomOrientation();
+        let nextMoviment = this.getRandomMoviment();
+        let nextPosition = duck.predictPosition(nextOrientation, nextMoviment);
+
+        // change moviment, if it's going to collide with another duck
+        if (nextPosition < 0 || nextPosition > this.mapLength || this.checkCollision(nextPosition))
+          nextMoviment = 0;
+
+        duck.move(nextOrientation, nextMoviment);
+      }
+      duck.update();
+    });
+
+    // respawn logic
+    if (this.ducks.length < this.numDucks && !(turnCount % this.maxRespawnTurns))
+      this.addDuck();
+  },
+
+
+  // utils
+
+  locateDuck(position) {
+    return this.ducks.find(duck => duck.position === position);
+  },
+
+  checkCollision(position) {
+    return Boolean(this.locateDuck(position));
+  },
+
+  getUnocupiedMapPosition() {
+    if (this.mapLength <= this.numDucks)
+      throw 'Too many ducks!';
+
+    var randPosition;
+    do {
+       randPosition = this.getRandomMapPosition();
+     } while(this.checkCollision(randPosition));
+
+     return randPosition;
+  },
+
+
+  // rng
+
+  getRandomMapPosition() {
+    return __WEBPACK_IMPORTED_MODULE_0__utils__["a" /* default */].getRandomNumber(0, this.mapLength-1);
+  },
+
+  getRandomOrientation() {
+    return __WEBPACK_IMPORTED_MODULE_0__utils__["a" /* default */].getRandomNumber(0, 1) ? 1 : -1;
+  },
+
+  getRandomMoviment() {
+    return __WEBPACK_IMPORTED_MODULE_0__utils__["a" /* default */].getRandomNumber(0, 1);
+  },
+
+  getRandomState() {
+    var randIndex = __WEBPACK_IMPORTED_MODULE_0__utils__["a" /* default */].getRandomNumber(0, __WEBPACK_IMPORTED_MODULE_1__models_duck__["a" /* default */].states.length-1);
+    return __WEBPACK_IMPORTED_MODULE_1__models_duck__["a" /* default */].states[randIndex];
+  }
+
+});
+
+
+/***/ }),
+/* 9 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__gameObject__ = __webpack_require__(1);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__utils__ = __webpack_require__(2);
 
@@ -346,41 +546,54 @@ function keyHandler(event) {
 
 /* harmony default export */ __webpack_exports__["a"] = (class extends __WEBPACK_IMPORTED_MODULE_0__gameObject__["a" /* default */] {
 
-  constructor(position, orientation) {
-    super(position);
 
-    this.turnsToMove = 30;
-
-    this.spritesheet = ['2', 'S'];
-    this.orientation = orientation;
+  static get spritesheet() {
+    return ['2', 'S'];
   }
 
-  set orientation(value) {
-    this._orientation = value;
-    this.state = (this.orientation > 0) ? 1 : 0;
+  static get states() {
+    return ['idle', 'walking'];
   }
 
-  get orientation() {
-    return this._orientation;
+  constructor(position, orientation, state) {
+    super(position, orientation, state);
+
+    this.idleTurns = 30;
   }
 
-  update(turnCount, ducks, mapLength) {
 
-    if (turnCount % this.turnsToMove === 0) {
+  // routine
 
-      // define new position
-      var orientation = __WEBPACK_IMPORTED_MODULE_1__utils__["a" /* default */].getRandomNumber(0, 1) ? 1 : -1;
-      var moviment = __WEBPACK_IMPORTED_MODULE_1__utils__["a" /* default */].getRandomNumber(0, 1);
-      var newPosition = this._getNewPosition(orientation, moviment);
+  update() {
+    super.update();
+    this.spriteIndex = (this.orientation > 0) ? 1 : 0;
+  }
 
-      // if possible, move to new position
-      if (newPosition > 0 && newPosition < mapLength) {
-        var isPositionTaken = ducks.some(duck => duck.position === newPosition);
-        if (!isPositionTaken)
-          this.move(orientation, moviment);
-      }
+
+  // state management
+
+  changeState(state) {
+    super.changeState(state);
+
+    switch(state) {
+      case 'idle':
+        this.idleTurnsCount = 0;
+        this.behaviour = this.idleBehaviour;
+        break;
+      case 'walking':
+        this.behaviour = this.walkBehaviour;
+        break;
     }
+  }
 
+  idleBehaviour() {
+    this.idleTurnsCount++;
+    if (this.idleTurns <= this.idleTurnsCount)
+      this.changeState('walking');
+  }
+
+  walkBehaviour() {
+    this.changeState('idle');
   }
 
 });
