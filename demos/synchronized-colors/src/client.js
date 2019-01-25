@@ -7,8 +7,10 @@ var colors;
 //
 //LOADING
 
-$(document).ready(function() {
-
+function onStart(e) {
+  
+  $(e.target).hide();
+  
   //checking if we can use the device's microphone
   if(!navigator.getUserMedia && !navigator.webkitGetUserMedia) {
     showWarning();
@@ -22,7 +24,8 @@ $(document).ready(function() {
     //start receiver
     receiver = new Receiver(onReceiverReady, function(e) {console.log(e);});
   });
-});
+
+}
 
 function onReceiverReady() {
 
