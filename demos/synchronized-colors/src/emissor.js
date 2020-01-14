@@ -2,13 +2,15 @@
 var nonColorDivs = [7, 16, 26, 37, 49, 62, 76, 89, 101, 112, 122, 131];
 var emitter;
 
-$(document).ready(function() {
+function onStart(e) {
+  
+  $(e.target).hide();
 
   createColors();
   createQRCode();
 
   startEmitter();
-});
+}
 
 //
 //EMITTER

@@ -6,6 +6,8 @@
 		<link href="global.css" rel="stylesheet" type="text/css" />
 	</head>
 	<body>
+  
+    <button onClick="onStart(event)">START</button>
 
 		<div id="warning" class="centered" hidden>
 			<div>Unfortunately your browser does not support WebRTC, or cannot get permission from your device to use its microphone.</div><br />
@@ -13,9 +15,6 @@
 			<a href="https://webrtc.org/">WebRTC Home</a><br />
 			<a href="http://caniuse.com/#search=webrtc">Can i use WebRTC?</a>
 		</div>
-
-		<!-- Service Worker -->
-		<script src="./src/swLoader.js" type="text/javascript"></script>
 
 		<!-- AudioMarkings.js -->
 		<script src="./src/lib/AudioMarkings.js" type="text/javascript"></script>
